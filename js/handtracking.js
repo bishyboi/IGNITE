@@ -83,6 +83,9 @@ class HandTracker {
     // ── MediaPipe callback ────────────────────────────────────────────────────
 
     _onResults(results) {
+        // Drop stale callbacks that arrive after destroy()
+        if (this._destroyed) return;
+
         // Suspend gesture processing during spell animation
         if (this._paused) {
             this.onUpdate(null, [], false, null);
@@ -180,6 +183,7 @@ class HandTracker {
     clearPath() { this.currentPath = []; }
 
     destroy() {
+        this._destroyed = true;
         this._camera?.stop();
         this._hands?.close();
         this._camera = null;

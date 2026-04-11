@@ -15,12 +15,26 @@
 
     <!-- ── Camera + drawing area ────────────────────────────────────────── -->
     <div id="camera-area">
+
+        <!-- Tracker mode toggle bar (above the camera frame) -->
+        <div id="tracker-mode-bar">
+            <button id="btn-hand" class="mode-btn active" title="Track via MediaPipe hand landmarks">
+                ✋ Hand
+            </button>
+            <button id="btn-ir" class="mode-btn" title="Track via IR camera + reflective wand tip">
+                🪄 IR Wand
+            </button>
+            <select id="ir-camera-select" class="hidden" title="Select IR camera device">
+                <option value="">Select camera…</option>
+            </select>
+        </div>
+
         <div id="camera-wrapper">
 
-            <!-- Webcam feed (CSS-mirrored in style.css) -->
+            <!-- Webcam / IR camera feed -->
             <video id="webcam" autoplay playsinline muted></video>
 
-            <!-- Canvas overlay: finger trail, glow, particles -->
+            <!-- Canvas overlay: finger trail, glow, particles, wand ring -->
             <canvas id="overlay"></canvas>
 
             <!-- Status bar at the bottom of the camera view -->
@@ -31,7 +45,7 @@
                 </div>
             </div>
 
-            <!-- Bottom toast notification (replaces centered overlays) -->
+            <!-- Bottom toast notification -->
             <div id="spell-toast">
                 <div id="toast-emoji"></div>
                 <div class="toast-text">
@@ -69,6 +83,7 @@
 <script src="js/frechet.js"></script>
 <script src="js/spells.js"></script>
 <script src="js/handtracking.js"></script>
+<script src="js/irtracker.js"></script>
 <script src="js/app.js"></script>
 
 </body>

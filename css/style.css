@@ -221,6 +221,63 @@ body::after {
     display: none !important;
 }
 
+/* ── Tracker mode toggle bar ─────────────────────────────────────────────── */
+
+#tracker-mode-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    justify-content: center;
+}
+
+.mode-btn {
+    padding: 6px 18px;
+    border-radius: 20px;
+    border: 1px solid rgba(150, 80, 255, 0.40);
+    background: rgba(255, 255, 255, 0.07);
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
+}
+
+.mode-btn:hover {
+    background: rgba(150, 80, 255, 0.18);
+    border-color: rgba(150, 80, 255, 0.65);
+    color: #fff;
+}
+
+.mode-btn.active {
+    background: rgba(150, 80, 255, 0.30);
+    border-color: rgba(150, 80, 255, 0.80);
+    color: #fff;
+    box-shadow: 0 0 14px rgba(150, 80, 255, 0.35);
+}
+
+#ir-camera-select {
+    padding: 5px 10px;
+    border-radius: 16px;
+    border: 1px solid rgba(150, 80, 255, 0.40);
+    background: rgba(20, 8, 42, 0.85);
+    color: #ddd;
+    font-size: 12px;
+    cursor: pointer;
+    max-width: 180px;
+    outline: none;
+}
+
+#ir-camera-select:focus {
+    border-color: rgba(150, 80, 255, 0.80);
+}
+
+/* IR camera: not a selfie — do not mirror */
+#webcam.no-mirror {
+    transform: none;
+}
+
 /* ── Spell book panel (Harry Potter themed) ──────────────────────────────── */
 
 #spellbook {

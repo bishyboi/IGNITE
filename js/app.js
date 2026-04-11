@@ -1,7 +1,10 @@
 /**
  * app.js — IGNITE Magic Spell Caster — Main application
  *
- * Orchestrates: HandTracker → spell matching → canvas rendering + particles + UI
+ * Orchestrates: tracker → spell matching → canvas rendering + particles + UI
+ * Supports two tracker modes:
+ *   'hand' — MediaPipe HandTracker (pinch to draw)
+ *   'ir'   — IRTracker (hold still to toggle drawing)
  */
 
 'use strict';
@@ -61,19 +64,19 @@ class SpellApp {
         this.currentPath = [];
         this.isDrawing   = false;
         this._wasDrawing = false;
+        this._lastMeta   = null;   // most-recent tracker meta object
 
         // Animation state
         this.particles  = [];
-        this.spellTimer = 0;   // frames remaining to show toast
+        this.spellTimer = 0;
+
+        // Tracker mode: 'hand' | 'ir'
+        this.trackerMode = 'hand';
+        this.tracker     = null;
 
         this._buildSpellBook();
-
-        this.tracker = new HandTracker(
-            this.video,
-            this.canvas,
-            (pos, path, drawing, meta) => this._onTrack(pos, path, drawing, meta)
-        );
-
+        this._setupModeUI();
+        this._startTracker('hand');
         this._loop();
     }
 
@@ -86,6 +89,124 @@ class SpellApp {
         this.canvas.height = rect.height || 480;
     }
 
+    // ── Mode toggle UI ────────────────────────────────────────────────────────
+
+    _setupModeUI() {
+        const btnHand = document.getElementById('btn-hand');
+        const btnIR   = document.getElementById('btn-ir');
+        const camSel  = document.getElementById('ir-camera-select');
+
+        btnHand.addEventListener('click', () => {
+            if (this.trackerMode === 'hand') return;
+            btnHand.classList.add('active');
+            btnIR.classList.remove('active');
+            camSel.classList.add('hidden');
+            camSel.value = '';
+            this._startTracker('hand');
+        });
+
+        btnIR.addEventListener('click', async () => {
+            if (this.trackerMode === 'ir') return;
+            btnIR.classList.add('active');
+            btnHand.classList.remove('active');
+
+            // Stop the hand tracker immediately — don't wait for camera
+            // enumeration with the old tracker still running.
+            this.trackerMode = 'ir';
+            if (this.tracker) {
+                this.tracker.destroy();
+                this.tracker = null;
+            }
+            this.fingerPos   = null;
+            this.currentPath = [];
+            this.isDrawing   = false;
+            this._wasDrawing = false;
+            this._lastMeta   = null;
+            this.video.srcObject = null;
+            this._setStatus('idle', '🪄', 'Select a camera to begin');
+
+            // Now enumerate cameras and show the selector
+            camSel.classList.remove('hidden');
+            await this._populateCameraSelect(camSel);
+
+            // Auto-start if there's exactly one camera
+            if (camSel.options.length === 2) {
+                camSel.selectedIndex = 1;
+                this._startTracker('ir', camSel.value);
+            }
+        });
+
+        // Start (or restart) IR tracker whenever a camera is picked
+        camSel.addEventListener('change', () => {
+            if (camSel.value === '') return;
+            this._startTracker('ir', camSel.value);
+        });
+    }
+
+    async _populateCameraSelect(select) {
+        try {
+            const devices = await listVideoDevices();
+            // Keep the placeholder option, rebuild the rest
+            select.options.length = 1;
+            devices.forEach((d, i) => {
+                const opt   = document.createElement('option');
+                opt.value   = d.deviceId;
+                opt.text    = d.label || `Camera ${i + 1}`;
+                select.appendChild(opt);
+            });
+            // Auto-select second camera (index 1) if available — common IR setup
+            if (devices.length > 1) select.selectedIndex = 2;
+        } catch (err) {
+            console.warn('[SpellApp] Could not enumerate cameras:', err);
+        }
+    }
+
+    // ── Tracker lifecycle ─────────────────────────────────────────────────────
+
+    _startTracker(mode, deviceId = null) {
+        // Set mode first — any stale callbacks from the old tracker that slip
+        // through before the _destroyed guard fires will still read the correct
+        // trackerMode and show the right status message.
+        this.trackerMode = mode;
+
+        // Tear down previous tracker
+        if (this.tracker) {
+            this.tracker.destroy();
+            this.tracker = null;
+        }
+
+        // Reset drawing state
+        this.fingerPos   = null;
+        this.currentPath = [];
+        this.isDrawing   = false;
+        this._wasDrawing = false;
+        this._lastMeta   = null;
+
+        // Both modes use the same CSS mirror (scaleX(-1)); IRTracker flips its
+        // detected x-coordinates to match so the overlay stays in sync.
+        document.getElementById('webcam').classList.remove('no-mirror');
+
+        // Update spellbook hint
+        document.querySelector('.spellbook-hint').textContent =
+            mode === 'hand'
+                ? 'Pinch thumb + index to draw'
+                : 'Hold wand still 1 s to toggle draw';
+
+        const callback = (pos, path, drawing, meta) =>
+            this._onTrack(pos, path, drawing, meta);
+
+        if (mode === 'hand') {
+            this.tracker = new HandTracker(this.video, this.canvas, callback);
+            this._setStatus('idle', '✋', 'Show your hand to begin');
+        } else {
+            this.tracker = new IRTracker(
+                this.video, this.canvas, callback,
+                deviceId ? { deviceId } : {}
+            );
+            this._setStatus('idle', '🪄', 'Point the wand at the camera');
+        }
+    }
+
     // ── Tracking callback ─────────────────────────────────────────────────────
 
     _onTrack(pos, path, drawing, meta) {
@@ -93,14 +214,28 @@ class SpellApp {
         this.currentPath = path;
         this._wasDrawing = this.isDrawing;
         this.isDrawing   = drawing;
+        this._lastMeta   = meta;
 
         // Status bar
-        if (!pos) {
-            this._setStatus('idle', '✋', 'Show your hand to begin');
-        } else if (drawing) {
-            this._setStatus('drawing', '✏️', 'Drawing… pinch again to cast!');
+        if (this.trackerMode === 'hand') {
+            if (!pos) {
+                this._setStatus('idle', '✋', 'Show your hand to begin');
+            } else if (drawing) {
+                this._setStatus('drawing', '✏️', 'Drawing… pinch again to cast!');
+            } else {
+                this._setStatus('ready', '🤌', 'Pinch to start drawing');
+            }
         } else {
-            this._setStatus('ready', '🤌', 'Pinch to start drawing');
+            if (!pos) {
+                this._setStatus('idle', '🪄', 'Point the wand at the camera');
+            } else if (drawing) {
+                this._setStatus('drawing', '✏️', 'Drawing… hold still to cast!');
+            } else {
+                const pct = meta?.stillProgress > 0
+                    ? ` (${Math.round(meta.stillProgress * 100)}%)`
+                    : '';
+                this._setStatus('ready', '🪄', `Hold still to start drawing${pct}`);
+            }
         }
 
         // Drawing just ended — evaluate the spell
@@ -116,7 +251,7 @@ class SpellApp {
         this.tracker.pauseTracking();
 
         if (match) {
-            this.spellTimer = 210;   // ~3.5 s at 60 fps
+            this.spellTimer = 210;
             this._highlightCard(match.name);
             this._emitParticles(match);
             this._showToast(match);
@@ -136,7 +271,7 @@ class SpellApp {
         nameEl.style.color = match.color;
         document.getElementById('toast-desc').textContent = match.description;
         toast.classList.remove('show', 'fail');
-        void toast.offsetWidth;   // force reflow to restart transition
+        void toast.offsetWidth;
         toast.classList.add('show');
     }
 
@@ -268,12 +403,16 @@ class SpellApp {
             this._drawPath(this.currentPath, this.isDrawing ? 1.0 : 0.45);
         }
 
-        // Finger dot
+        // Cursor / wand indicator
         if (this.fingerPos) {
-            this._drawFinger(this.fingerPos, this.isDrawing);
+            if (this.trackerMode === 'ir') {
+                this._drawWand(this.fingerPos, this.isDrawing, this._lastMeta);
+            } else {
+                this._drawFinger(this.fingerPos, this.isDrawing);
+            }
         }
 
-        // Subtle finger trail particles while drawing
+        // Subtle trail particles while drawing
         if (this.isDrawing && this.fingerPos && !this.spellTimer) {
             if (Math.random() < 0.65) {
                 const p = new Particle(
@@ -294,7 +433,7 @@ class SpellApp {
         this.particles = this.particles.filter(p => !p.isDead());
         for (const p of this.particles) { p.update(); p.draw(ctx); }
 
-        // Toast timer countdown — hide and resume tracking when done
+        // Toast timer countdown
         if (this.spellTimer > 0) {
             this.spellTimer--;
             if (this.spellTimer === 0) {
@@ -310,7 +449,6 @@ class SpellApp {
         const ctx   = this.ctx;
         const color = this.isDrawing ? '#ff44ff' : '#44aaff';
 
-        // Wide glow halo
         ctx.save();
         ctx.globalAlpha = alpha * 0.35;
         ctx.strokeStyle = color;
@@ -322,7 +460,6 @@ class SpellApp {
         this._strokePath(path, ctx);
         ctx.restore();
 
-        // Crisp core line
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.strokeStyle = color;
@@ -342,6 +479,7 @@ class SpellApp {
         ctx.stroke();
     }
 
+    /** Hand mode: simple glowing dot */
     _drawFinger(pos, drawing) {
         const ctx   = this.ctx;
         const color = drawing ? '#ff44ff' : '#ffffff';
@@ -355,6 +493,63 @@ class SpellApp {
         ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
+    }
+
+    /**
+     * IR mode: ring + crosshairs (mirrors ir_tracker.py _draw_overlay).
+     * Green = idle/ready  |  Red = drawing active
+     * Also draws a still-progress arc when the user is holding still.
+     */
+    _drawWand(pos, drawing, meta) {
+        const ctx    = this.ctx;
+        const { x, y } = pos;
+        const color  = drawing ? '#ff4444' : '#44ff44';
+        const ringR  = Math.max(meta?.radius ?? 8, 8);
+        const arm    = ringR + 10;
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle   = color;
+        ctx.shadowBlur  = 18;
+        ctx.shadowColor = color;
+        ctx.lineWidth   = 2;
+
+        // Outer ring
+        ctx.beginPath();
+        ctx.arc(x, y, ringR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Center dot
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Crosshairs
+        ctx.beginPath();
+        ctx.moveTo(x - arm, y); ctx.lineTo(x + arm, y);
+        ctx.moveTo(x, y - arm); ctx.lineTo(x, y + arm);
+        ctx.stroke();
+
+        ctx.restore();
+
+        // Still-progress arc (sweeps from top, clockwise)
+        const progress = meta?.stillProgress ?? 0;
+        if (progress > 0) {
+            const arcR  = ringR + 6;
+            const start = -Math.PI / 2;
+            const end   = start + progress * Math.PI * 2;
+
+            ctx.save();
+            ctx.strokeStyle = drawing ? '#ff8888' : '#88ff88';
+            ctx.lineWidth   = 3;
+            ctx.shadowBlur  = 12;
+            ctx.shadowColor = drawing ? '#ff4444' : '#44ff44';
+            ctx.lineCap     = 'round';
+            ctx.beginPath();
+            ctx.arc(x, y, arcR, start, end);
+            ctx.stroke();
+            ctx.restore();
+        }
     }
 
     // ── Status bar ────────────────────────────────────────────────────────────
