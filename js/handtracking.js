@@ -42,6 +42,7 @@ class HandTracker {
         this.drawing       = false;
         this._pinchActive  = false;
         this.currentPath   = [];      // single path; cleared on each new drawing
+        this._paused       = false;   // suspend gesture processing during spell animation
 
         this._hands  = null;
         this._camera = null;
@@ -82,6 +83,12 @@ class HandTracker {
     // ── MediaPipe callback ────────────────────────────────────────────────────
 
     _onResults(results) {
+        // Suspend gesture processing during spell animation
+        if (this._paused) {
+            this.onUpdate(null, [], false, null);
+            return;
+        }
+
         const W = this.canvas.width  || 640;
         const H = this.canvas.height || 480;
 
@@ -151,6 +158,20 @@ class HandTracker {
             this.drawing,
             { thumbTip, indexTip, normDist, pinchActive: this._pinchActive, landmarks: lm }
         );
+    }
+
+    // ── Pause / resume ────────────────────────────────────────────────────────
+
+    pauseTracking() {
+        this._paused      = true;
+        this.drawing      = false;
+        this._pinchActive = false;
+        this.currentPath  = [];
+    }
+
+    resumeTracking() {
+        this._paused       = false;
+        this.smoothedPoint = null;   // reset to avoid position jump on resume
     }
 
     // ── Public helpers ────────────────────────────────────────────────────────

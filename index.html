@@ -4,13 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IGNITE – Magic Spell Caster</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
 <div id="app">
 
-    <!-- ── Camera + drawing area ────────────────────────────────────── -->
+    <!-- ── Camera + drawing area ────────────────────────────────────────── -->
     <div id="camera-area">
         <div id="camera-wrapper">
 
@@ -28,28 +31,19 @@
                 </div>
             </div>
 
-            <!-- Spell-match success overlay -->
-            <div id="spell-result" class="hidden">
-                <div id="result-content">
-                    <div id="result-emoji"></div>
-                    <div id="result-name"></div>
-                    <div id="result-desc"></div>
-                    <div id="result-score"></div>
-                </div>
-            </div>
-
-            <!-- Spell-match failure overlay -->
-            <div id="spell-fail" class="hidden">
-                <div id="fail-content">
-                    <div id="fail-icon">❓</div>
-                    <div id="fail-text">Not a recognised spell… try again!</div>
+            <!-- Bottom toast notification (replaces centered overlays) -->
+            <div id="spell-toast">
+                <div id="toast-emoji"></div>
+                <div class="toast-text">
+                    <div id="toast-name"></div>
+                    <div id="toast-desc"></div>
                 </div>
             </div>
 
         </div>
     </div>
 
-    <!-- ── Spell book sidebar ────────────────────────────────────────── -->
+    <!-- ── Spell book sidebar ────────────────────────────────────────────── -->
     <div id="spellbook">
         <h2 class="spellbook-title">📖 Spell Book</h2>
         <p class="spellbook-hint">Pinch thumb + index to draw</p>

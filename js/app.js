@@ -64,7 +64,7 @@ class SpellApp {
 
         // Animation state
         this.particles  = [];
-        this.spellTimer = 0;   // frames remaining to show result overlay
+        this.spellTimer = 0;   // frames remaining to show toast
 
         this._buildSpellBook();
 
@@ -113,29 +113,48 @@ class SpellApp {
 
     _castSpell(path) {
         const match = matchSpell(path);
+        this.tracker.pauseTracking();
 
         if (match) {
             this.spellTimer = 210;   // ~3.5 s at 60 fps
-
             this._highlightCard(match.name);
             this._emitParticles(match);
-
-            document.getElementById('result-emoji').textContent = match.emoji;
-            document.getElementById('result-name').textContent  = match.name;
-            document.getElementById('result-name').style.color  = match.color;
-            document.getElementById('result-desc').textContent  = match.description;
-            document.getElementById('result-score').textContent =
-                match.frechet != null
-                    ? `Fréchet ${match.frechet.toFixed(3)}  ·  RMS ${match.rms.toFixed(3)}  ·  score ${(match.score * 100).toFixed(1)}%`
-                    : `confidence ${(match.score * 100).toFixed(1)}%`;
-
-            document.getElementById('spell-result').classList.remove('hidden');
-            document.getElementById('spell-fail').classList.add('hidden');
+            this._showToast(match);
         } else {
             this.spellTimer = 100;
-            document.getElementById('spell-result').classList.add('hidden');
-            document.getElementById('spell-fail').classList.remove('hidden');
+            this._showFailToast();
         }
+    }
+
+    // ── Toast notification ────────────────────────────────────────────────────
+
+    _showToast(match) {
+        const toast  = document.getElementById('spell-toast');
+        const nameEl = document.getElementById('toast-name');
+        document.getElementById('toast-emoji').textContent = match.emoji;
+        nameEl.textContent = match.name;
+        nameEl.style.color = match.color;
+        document.getElementById('toast-desc').textContent = match.description;
+        toast.classList.remove('show', 'fail');
+        void toast.offsetWidth;   // force reflow to restart transition
+        toast.classList.add('show');
+    }
+
+    _showFailToast() {
+        const toast  = document.getElementById('spell-toast');
+        const nameEl = document.getElementById('toast-name');
+        document.getElementById('toast-emoji').textContent = '❓';
+        nameEl.textContent = 'Unknown Spell';
+        nameEl.style.color = '#ffaaaa';
+        document.getElementById('toast-desc').textContent = 'Not recognised… try again!';
+        toast.classList.remove('show');
+        toast.classList.add('fail');
+        void toast.offsetWidth;
+        toast.classList.add('show');
+    }
+
+    _hideToast() {
+        document.getElementById('spell-toast').classList.remove('show');
     }
 
     // ── Particle emitters ─────────────────────────────────────────────────────
@@ -148,7 +167,6 @@ class SpellApp {
         switch (spell.effect) {
 
             case 'lumos':
-                // Radial white-gold burst, then gentle rain of motes
                 for (let i = 0; i < N; i++) {
                     const a  = (i / N) * Math.PI * 2;
                     const sp = 2 + Math.random() * 6;
@@ -161,7 +179,6 @@ class SpellApp {
                 break;
 
             case 'nox':
-                // Dark particles implode toward center
                 for (let i = 0; i < N; i++) {
                     const a  = (i / N) * Math.PI * 2;
                     const r  = 80 + Math.random() * 120;
@@ -175,7 +192,6 @@ class SpellApp {
                 break;
 
             case 'unlock':
-                // Sparks shoot outward from center in a cross pattern
                 for (let i = 0; i < N; i++) {
                     const a  = (i / N) * Math.PI * 2;
                     const sp = 3 + Math.random() * 7;
@@ -188,7 +204,6 @@ class SpellApp {
                 break;
 
             case 'levitate':
-                // Gentle upward-drifting particles across the frame
                 for (let i = 0; i < N; i++) {
                     this.particles.push(new Particle(
                         cx + (Math.random() - 0.5) * this.canvas.width * 0.8,
@@ -200,7 +215,6 @@ class SpellApp {
                 break;
 
             case 'shield':
-                // Expanding ring burst
                 for (let i = 0; i < N; i++) {
                     const a  = (i / N) * Math.PI * 2;
                     const sp = 3 + Math.random() * 3.5;
@@ -213,7 +227,6 @@ class SpellApp {
                 break;
 
             case 'fire':
-                // Embers rising from bottom of frame
                 for (let i = 0; i < N; i++) {
                     const ox = (Math.random() - 0.5) * this.canvas.width * 0.6;
                     const sp = 2 + Math.random() * 5;
@@ -226,7 +239,6 @@ class SpellApp {
                 break;
 
             case 'constellation':
-                // Stars pop into existence scattered across the frame
                 for (let i = 0; i < N; i++) {
                     const sx = Math.random() * this.canvas.width;
                     const sy = Math.random() * this.canvas.height * 0.7;
@@ -261,16 +273,33 @@ class SpellApp {
             this._drawFinger(this.fingerPos, this.isDrawing);
         }
 
+        // Subtle finger trail particles while drawing
+        if (this.isDrawing && this.fingerPos && !this.spellTimer) {
+            if (Math.random() < 0.65) {
+                const p = new Particle(
+                    this.fingerPos.x + (Math.random() - 0.5) * 6,
+                    this.fingerPos.y + (Math.random() - 0.5) * 6,
+                    (Math.random() - 0.5) * 1.5,
+                    -0.6 - Math.random() * 1.0,
+                    Math.random() < 0.5 ? '#ff44ff' : '#cc88ff',
+                    1 + Math.random() * 1.5
+                );
+                p.decay   = 0.055 + Math.random() * 0.03;
+                p.gravity = 0.015;
+                this.particles.push(p);
+            }
+        }
+
         // Particles
         this.particles = this.particles.filter(p => !p.isDead());
         for (const p of this.particles) { p.update(); p.draw(ctx); }
 
-        // Overlay timer countdown
+        // Toast timer countdown — hide and resume tracking when done
         if (this.spellTimer > 0) {
             this.spellTimer--;
             if (this.spellTimer === 0) {
-                document.getElementById('spell-result').classList.add('hidden');
-                document.getElementById('spell-fail').classList.add('hidden');
+                this._hideToast();
+                this.tracker.resumeTracking();
             }
         }
     }
@@ -348,19 +377,10 @@ class SpellApp {
             card.id = `card-${spell.name.replace(/\s+/g, '-')}`;
             card.style.setProperty('--spell-color', spell.color);
 
-            // Use SVG template preview for Protego; shape glyph for all others
-            const preview = spell.template
-                ? `<svg viewBox="-1.1 -1.1 2.2 2.2" xmlns="http://www.w3.org/2000/svg">
-                       <polyline points="${spell.template.map(p => `${(p.x*0.9).toFixed(2)},${(p.y*0.9).toFixed(2)}`).join(' ')}"
-                           fill="none" stroke="${spell.color}" stroke-width="0.14"
-                           stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
-                   </svg>`
-                : `<span style="color:${spell.color};font-size:20px;line-height:38px;">${spell.shape.replace('Draw  ','')}</span>`;
-
             card.innerHTML = `
-                <div class="spell-preview">${preview}</div>
+                <div class="spell-emoji">${spell.emoji}</div>
                 <div class="spell-card-info">
-                    <div class="spell-card-name">${spell.emoji} ${spell.name}</div>
+                    <div class="spell-card-name">${spell.name}</div>
                     <div class="spell-card-shape">${spell.shape}</div>
                 </div>`;
 
