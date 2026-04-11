@@ -81,6 +81,11 @@ class IRTracker {
         this._proc    = document.createElement('canvas');
         this._procCtx = this._proc.getContext('2d', { willReadFrequently: true });
 
+        // Reusable pixel buffers — allocated once, resized only on resolution change
+        this._gray   = null;   // Float32Array
+        this._diff   = null;   // Float32Array
+        this._binary = null;   // Uint8Array
+
         this._rafId  = null;
         this._stream = null;
 
@@ -131,15 +136,21 @@ class IRTracker {
             this._proc.width  = W;
             this._proc.height = H;
             this._bgModel = null;
+            const N       = W * H;
+            this._gray    = new Float32Array(N);
+            this._diff    = new Float32Array(N);
+            this._binary  = new Uint8Array(N);
         }
 
         this._procCtx.drawImage(this.video, 0, 0, W, H);
         const imgData = this._procCtx.getImageData(0, 0, W, H);
         const pixels  = imgData.data;
-        const N = W * H;
+        const N       = W * H;
+        const gray    = this._gray;
+        const diff    = this._diff;
+        const binary  = this._binary;
 
         // ── 1. Grayscale ──────────────────────────────────────────────────────
-        const gray = new Float32Array(N);
         for (let i = 0; i < N; i++) {
             const p = i << 2;
             gray[i] = 0.299 * pixels[p] + 0.587 * pixels[p + 1] + 0.114 * pixels[p + 2];
@@ -156,13 +167,14 @@ class IRTracker {
         }
 
         // ── 3. Difference + threshold ─────────────────────────────────────────
-        const diff = new Float32Array(N);
         let maxDiff = 0;
         for (let i = 0; i < N; i++) {
             const d = gray[i] - this._bgModel[i];
             if (d > 0) {
                 diff[i] = d;
                 if (d > maxDiff) maxDiff = d;
+            } else {
+                diff[i] = 0;
             }
         }
 
@@ -172,9 +184,8 @@ class IRTracker {
         }
 
         const thresh = Math.max(maxDiff - IR_THRESH_OFFSET, 1);
-        const binary = new Uint8Array(N);
         for (let i = 0; i < N; i++) {
-            if (diff[i] >= thresh) binary[i] = 1;
+            binary[i] = diff[i] >= thresh ? 1 : 0;
         }
 
         // ── 4. Blob detection ─────────────────────────────────────────────────
@@ -228,14 +239,18 @@ class IRTracker {
     // ── Blob detection ────────────────────────────────────────────────────────
 
     _findBestBlob(binary, W, H) {
-        const last = this.smoothedPoint;
+        const last    = this.smoothedPoint;
+        const maxJmp2 = IR_MAX_JUMP * IR_MAX_JUMP;   // squared — avoids sqrt per pixel
         let sumX = 0, sumY = 0, count = 0;
 
         for (let y = 0; y < H; y++) {
             const rowOff = y * W;
             for (let x = 0; x < W; x++) {
                 if (!binary[rowOff + x]) continue;
-                if (last && Math.hypot(x - last.x, y - last.y) > IR_MAX_JUMP) continue;
+                if (last) {
+                    const dx = x - last.x, dy = y - last.y;
+                    if (dx * dx + dy * dy > maxJmp2) continue;
+                }
                 sumX += x;
                 sumY += y;
                 count++;

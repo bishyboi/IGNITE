@@ -251,12 +251,12 @@ class SpellApp {
         this.tracker.pauseTracking();
 
         if (match) {
-            this.spellTimer = 210;
+            this.spellTimer = 120;
             this._highlightCard(match.name);
             this._emitParticles(match);
             this._showToast(match);
         } else {
-            this.spellTimer = 100;
+            this.spellTimer = 60;
             this._showFailToast();
         }
     }
@@ -308,7 +308,7 @@ class SpellApp {
                     this.particles.push(new Particle(
                         cx, cy,
                         Math.cos(a) * sp, Math.sin(a) * sp - 1,
-                        i % 2 === 0 ? '#ffffff' : spell.color, 3 + Math.random() * 4
+                        i % 2 === 0 ? '#ffffff' : spell.color, 6 + Math.random() * 8
                     ));
                 }
                 break;
@@ -321,7 +321,7 @@ class SpellApp {
                     this.particles.push(new Particle(
                         cx + Math.cos(a) * r, cy + Math.sin(a) * r,
                         -Math.cos(a) * sp, -Math.sin(a) * sp,
-                        i % 2 === 0 ? '#4444aa' : spell.color, 3 + Math.random() * 4
+                        i % 2 === 0 ? '#4444aa' : spell.color, 6 + Math.random() * 8
                     ));
                 }
                 break;
@@ -333,7 +333,7 @@ class SpellApp {
                     this.particles.push(new Particle(
                         cx, cy,
                         Math.cos(a) * sp, Math.sin(a) * sp - 1.5,
-                        i % 3 === 0 ? '#ffffff' : spell.color, 2 + Math.random() * 4
+                        i % 3 === 0 ? '#ffffff' : spell.color, 5 + Math.random() * 8
                     ));
                 }
                 break;
@@ -344,7 +344,7 @@ class SpellApp {
                         cx + (Math.random() - 0.5) * this.canvas.width * 0.8,
                         cy + (Math.random() - 0.5) * 60,
                         (Math.random() - 0.5) * 1.5, -(1.5 + Math.random() * 3),
-                        i % 2 === 0 ? '#ffffff' : spell.color, 2 + Math.random() * 3
+                        i % 2 === 0 ? '#ffffff' : spell.color, 5 + Math.random() * 7
                     ));
                 }
                 break;
@@ -356,7 +356,7 @@ class SpellApp {
                     this.particles.push(new Particle(
                         cx, cy,
                         Math.cos(a) * sp, Math.sin(a) * sp,
-                        spell.color, 4 + Math.random() * 3
+                        spell.color, 7 + Math.random() * 6
                     ));
                 }
                 break;
@@ -368,7 +368,7 @@ class SpellApp {
                     this.particles.push(new Particle(
                         cx + ox, this.canvas.height * 0.8,
                         (Math.random() - 0.5) * 3, -(sp),
-                        i % 3 === 0 ? '#ffee44' : spell.color, 3 + Math.random() * 5
+                        i % 3 === 0 ? '#ffee44' : spell.color, 6 + Math.random() * 8
                     ));
                 }
                 break;
@@ -380,7 +380,7 @@ class SpellApp {
                     this.particles.push(new Particle(
                         sx, sy,
                         (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4,
-                        i % 3 === 0 ? '#ffffff' : spell.color, 2 + Math.random() * 4
+                        i % 3 === 0 ? '#ffffff' : spell.color, 5 + Math.random() * 8
                     ));
                 }
                 break;
@@ -412,7 +412,7 @@ class SpellApp {
             }
         }
 
-        // Subtle trail particles while drawing
+        // Trail particles while drawing
         if (this.isDrawing && this.fingerPos && !this.spellTimer) {
             if (Math.random() < 0.65) {
                 const p = new Particle(
@@ -421,7 +421,7 @@ class SpellApp {
                     (Math.random() - 0.5) * 1.5,
                     -0.6 - Math.random() * 1.0,
                     Math.random() < 0.5 ? '#ff44ff' : '#cc88ff',
-                    1 + Math.random() * 1.5
+                    4 + Math.random() * 4
                 );
                 p.decay   = 0.055 + Math.random() * 0.03;
                 p.gravity = 0.015;
