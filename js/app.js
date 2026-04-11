@@ -125,7 +125,9 @@ class SpellApp {
             document.getElementById('result-name').style.color  = match.color;
             document.getElementById('result-desc').textContent  = match.description;
             document.getElementById('result-score').textContent =
-                `Fréchet ${match.frechet.toFixed(3)}  ·  RMS ${match.rms.toFixed(3)}  ·  score ${(match.score * 100).toFixed(1)}%`;
+                match.frechet != null
+                    ? `Fréchet ${match.frechet.toFixed(3)}  ·  RMS ${match.rms.toFixed(3)}  ·  score ${(match.score * 100).toFixed(1)}%`
+                    : `confidence ${(match.score * 100).toFixed(1)}%`;
 
             document.getElementById('spell-result').classList.remove('hidden');
             document.getElementById('spell-fail').classList.add('hidden');
@@ -145,8 +147,60 @@ class SpellApp {
 
         switch (spell.effect) {
 
+            case 'lumos':
+                // Radial white-gold burst, then gentle rain of motes
+                for (let i = 0; i < N; i++) {
+                    const a  = (i / N) * Math.PI * 2;
+                    const sp = 2 + Math.random() * 6;
+                    this.particles.push(new Particle(
+                        cx, cy,
+                        Math.cos(a) * sp, Math.sin(a) * sp - 1,
+                        i % 2 === 0 ? '#ffffff' : spell.color, 3 + Math.random() * 4
+                    ));
+                }
+                break;
+
+            case 'nox':
+                // Dark particles implode toward center
+                for (let i = 0; i < N; i++) {
+                    const a  = (i / N) * Math.PI * 2;
+                    const r  = 80 + Math.random() * 120;
+                    const sp = 2 + Math.random() * 3;
+                    this.particles.push(new Particle(
+                        cx + Math.cos(a) * r, cy + Math.sin(a) * r,
+                        -Math.cos(a) * sp, -Math.sin(a) * sp,
+                        i % 2 === 0 ? '#4444aa' : spell.color, 3 + Math.random() * 4
+                    ));
+                }
+                break;
+
+            case 'unlock':
+                // Sparks shoot outward from center in a cross pattern
+                for (let i = 0; i < N; i++) {
+                    const a  = (i / N) * Math.PI * 2;
+                    const sp = 3 + Math.random() * 7;
+                    this.particles.push(new Particle(
+                        cx, cy,
+                        Math.cos(a) * sp, Math.sin(a) * sp - 1.5,
+                        i % 3 === 0 ? '#ffffff' : spell.color, 2 + Math.random() * 4
+                    ));
+                }
+                break;
+
+            case 'levitate':
+                // Gentle upward-drifting particles across the frame
+                for (let i = 0; i < N; i++) {
+                    this.particles.push(new Particle(
+                        cx + (Math.random() - 0.5) * this.canvas.width * 0.8,
+                        cy + (Math.random() - 0.5) * 60,
+                        (Math.random() - 0.5) * 1.5, -(1.5 + Math.random() * 3),
+                        i % 2 === 0 ? '#ffffff' : spell.color, 2 + Math.random() * 3
+                    ));
+                }
+                break;
+
             case 'shield':
-                // Even ring burst
+                // Expanding ring burst
                 for (let i = 0; i < N; i++) {
                     const a  = (i / N) * Math.PI * 2;
                     const sp = 3 + Math.random() * 3.5;
@@ -158,64 +212,28 @@ class SpellApp {
                 }
                 break;
 
-            case 'lightning':
-                // Chaotic upward sparks
+            case 'fire':
+                // Embers rising from bottom of frame
                 for (let i = 0; i < N; i++) {
-                    const a  = Math.random() * Math.PI * 2;
-                    const sp = 4 + Math.random() * 9;
+                    const ox = (Math.random() - 0.5) * this.canvas.width * 0.6;
+                    const sp = 2 + Math.random() * 5;
                     this.particles.push(new Particle(
-                        cx + (Math.random() - 0.5) * 220,
-                        cy + (Math.random() - 0.5) * 120,
-                        Math.cos(a) * sp,
-                        Math.sin(a) * sp - 2.5,
-                        spell.color, 3 + Math.random() * 4
+                        cx + ox, this.canvas.height * 0.8,
+                        (Math.random() - 0.5) * 3, -(sp),
+                        i % 3 === 0 ? '#ffee44' : spell.color, 3 + Math.random() * 5
                     ));
                 }
                 break;
 
-            case 'star':
-                // Star-ray burst, alternating yellow/orange
+            case 'constellation':
+                // Stars pop into existence scattered across the frame
                 for (let i = 0; i < N; i++) {
-                    const a  = (i / N) * Math.PI * 2;
-                    const sp = 2.5 + Math.random() * 7;
+                    const sx = Math.random() * this.canvas.width;
+                    const sy = Math.random() * this.canvas.height * 0.7;
                     this.particles.push(new Particle(
-                        cx, cy,
-                        Math.cos(a) * sp, Math.sin(a) * sp,
-                        i % 3 === 0 ? '#fff8aa' : spell.color,
-                        2.5 + Math.random() * 5
-                    ));
-                }
-                break;
-
-            case 'spiral':
-                // Particles launched tangentially along a spiral
-                for (let i = 0; i < N; i++) {
-                    const t  = i / N;
-                    const a  = t * 4 * Math.PI;
-                    const r  = 15 + t * 90;
-                    const sp = 2.5 + Math.random() * 4;
-                    this.particles.push(new Particle(
-                        cx + Math.cos(a) * r * 0.35,
-                        cy + Math.sin(a) * r * 0.35,
-                        Math.cos(a + Math.PI / 2) * sp,
-                        Math.sin(a + Math.PI / 2) * sp,
-                        spell.color, 3 + Math.random() * 4
-                    ));
-                }
-                break;
-
-            case 'infinity':
-                // Particles seeded along a figure-8
-                for (let i = 0; i < N; i++) {
-                    const t  = (i / N) * Math.PI * 2;
-                    const sx = Math.sin(t)       * 85;
-                    const sy = Math.sin(2 * t)   * 42;
-                    const a  = Math.random() * Math.PI * 2;
-                    const sp = 1.5 + Math.random() * 3.5;
-                    this.particles.push(new Particle(
-                        cx + sx, cy + sy,
-                        Math.cos(a) * sp, Math.sin(a) * sp,
-                        spell.color, 3 + Math.random() * 3
+                        sx, sy,
+                        (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4,
+                        i % 3 === 0 ? '#ffffff' : spell.color, 2 + Math.random() * 4
                     ));
                 }
                 break;
@@ -330,16 +348,17 @@ class SpellApp {
             card.id = `card-${spell.name.replace(/\s+/g, '-')}`;
             card.style.setProperty('--spell-color', spell.color);
 
-            const pts = templateToSVGPoints(spell.template);
+            // Use SVG template preview for Protego; shape glyph for all others
+            const preview = spell.template
+                ? `<svg viewBox="-1.1 -1.1 2.2 2.2" xmlns="http://www.w3.org/2000/svg">
+                       <polyline points="${spell.template.map(p => `${(p.x*0.9).toFixed(2)},${(p.y*0.9).toFixed(2)}`).join(' ')}"
+                           fill="none" stroke="${spell.color}" stroke-width="0.14"
+                           stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+                   </svg>`
+                : `<span style="color:${spell.color};font-size:20px;line-height:38px;">${spell.shape.replace('Draw  ','')}</span>`;
+
             card.innerHTML = `
-                <div class="spell-preview">
-                    <svg viewBox="-1.1 -1.1 2.2 2.2" xmlns="http://www.w3.org/2000/svg">
-                        <polyline points="${pts}"
-                            fill="none" stroke="${spell.color}"
-                            stroke-width="0.14" stroke-linecap="round"
-                            stroke-linejoin="round" opacity="0.9"/>
-                    </svg>
-                </div>
+                <div class="spell-preview">${preview}</div>
                 <div class="spell-card-info">
                     <div class="spell-card-name">${spell.emoji} ${spell.name}</div>
                     <div class="spell-card-shape">${spell.shape}</div>
