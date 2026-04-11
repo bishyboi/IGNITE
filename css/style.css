@@ -1,0 +1,345 @@
+/* ── Reset ───────────────────────────────────────────────────────────────── */
+
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* ── Body / background ────────────────────────────────────────────────────── */
+
+body {
+    background: #08001a;
+    color: #fff;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at 15% 50%, rgba(110, 30, 200, 0.18) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 20%, rgba(30,  90, 210, 0.16) 0%, transparent 55%),
+        radial-gradient(ellipse at 55% 85%, rgba(200, 30, 110, 0.12) 0%, transparent 55%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Stars generated via box-shadow trick */
+body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+        radial-gradient(1px 1px at  5%  8%, rgba(255,255,255,0.55) 0%, transparent 100%),
+        radial-gradient(1px 1px at 12% 30%, rgba(255,255,255,0.40) 0%, transparent 100%),
+        radial-gradient(1px 1px at 25% 15%, rgba(255,255,255,0.60) 0%, transparent 100%),
+        radial-gradient(1px 1px at 37% 60%, rgba(255,255,255,0.35) 0%, transparent 100%),
+        radial-gradient(1px 1px at 50%  5%, rgba(255,255,255,0.55) 0%, transparent 100%),
+        radial-gradient(1px 1px at 63% 40%, rgba(255,255,255,0.45) 0%, transparent 100%),
+        radial-gradient(1px 1px at 74% 22%, rgba(255,255,255,0.50) 0%, transparent 100%),
+        radial-gradient(1px 1px at 88% 75%, rgba(255,255,255,0.40) 0%, transparent 100%),
+        radial-gradient(1px 1px at 92% 12%, rgba(255,255,255,0.60) 0%, transparent 100%),
+        radial-gradient(1px 1px at 45% 85%, rgba(255,255,255,0.35) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ── App layout ──────────────────────────────────────────────────────────── */
+
+#app {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    height: 100vh;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 24px;
+}
+
+/* ── Camera wrapper ──────────────────────────────────────────────────────── */
+
+#camera-area {
+    flex: 0 0 auto;
+}
+
+#camera-wrapper {
+    position: relative;
+    width: 640px;
+    height: 480px;
+    border-radius: 18px;
+    overflow: hidden;
+    border: 2px solid rgba(150, 80, 255, 0.45);
+    box-shadow:
+        0 0 35px rgba(150, 80, 255, 0.30),
+        0 0 90px rgba(150, 80, 255, 0.10),
+        inset 0 0 30px rgba(0, 0, 0, 0.4);
+}
+
+#webcam {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);   /* selfie mirror */
+    background: #111;
+}
+
+#overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+/* ── Status bar ──────────────────────────────────────────────────────────── */
+
+#status-bar {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    pointer-events: none;
+}
+
+#draw-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    border-radius: 22px;
+    font-size: 14px;
+    font-weight: 600;
+    backdrop-filter: blur(12px);
+    transition: background 0.3s, border-color 0.3s, color 0.3s;
+    white-space: nowrap;
+}
+
+#draw-status.idle {
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: #aaa;
+}
+
+#draw-status.ready {
+    background: rgba(60, 200, 80, 0.22);
+    border: 1px solid rgba(60, 200, 80, 0.50);
+    color: #80ff90;
+}
+
+#draw-status.drawing {
+    background: rgba(210, 50, 230, 0.28);
+    border: 1px solid rgba(210, 50, 230, 0.60);
+    color: #ff80ff;
+    animation: statusPulse 1s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(210, 50, 230, 0.35); }
+    50%       { box-shadow: 0 0 22px rgba(210, 50, 230, 0.75); }
+}
+
+/* ── Spell result overlay ────────────────────────────────────────────────── */
+
+#spell-result,
+#spell-fail {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    background: rgba(0, 0, 10, 0.55);
+    backdrop-filter: blur(5px);
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Success */
+#result-content {
+    text-align: center;
+    animation: revealPop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes revealPop {
+    from { transform: scale(0.4); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+}
+
+#result-emoji {
+    font-size: 88px;
+    line-height: 1;
+    animation: emojiBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
+}
+
+@keyframes emojiBounce {
+    from { transform: scale(0.2) rotate(-15deg); }
+    to   { transform: scale(1)   rotate(0deg);   }
+}
+
+#result-name {
+    font-size: 34px;
+    font-weight: 800;
+    margin: 14px 0 8px;
+    letter-spacing: 0.5px;
+    text-shadow: 0 0 25px currentColor;
+}
+
+#result-desc {
+    font-size: 17px;
+    font-weight: 500;
+    opacity: 0.88;
+}
+
+#result-score {
+    font-size: 12px;
+    font-family: 'Courier New', monospace;
+    opacity: 0.45;
+    margin-top: 10px;
+}
+
+/* Fail */
+#fail-content {
+    text-align: center;
+    animation: revealPop 0.3s ease-out both;
+}
+
+#fail-icon {
+    font-size: 72px;
+}
+
+#fail-text {
+    font-size: 20px;
+    font-weight: 600;
+    margin-top: 12px;
+    color: #ffaaaa;
+}
+
+/* ── Spell book panel ────────────────────────────────────────────────────── */
+
+#spellbook {
+    width: 250px;
+    flex: 0 0 250px;
+    max-height: 480px;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(150, 80, 255, 0.30);
+    border-radius: 18px;
+    padding: 20px 16px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 0 30px rgba(150, 80, 255, 0.10);
+}
+
+#spellbook::-webkit-scrollbar        { width: 4px; }
+#spellbook::-webkit-scrollbar-track  { background: transparent; }
+#spellbook::-webkit-scrollbar-thumb  { background: rgba(150,80,255,0.4); border-radius: 2px; }
+
+.spellbook-title {
+    font-size: 20px;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+.spellbook-hint {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.45);
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+/* ── Spell cards ─────────────────────────────────────────────────────────── */
+
+.spell-card {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 11px 10px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    transition: border-color 0.35s, background 0.35s, box-shadow 0.35s;
+}
+
+.spell-card.matched {
+    border-color: var(--spell-color);
+    background: color-mix(in srgb, var(--spell-color) 15%, transparent);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--spell-color) 50%, transparent);
+    animation: cardPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes cardPop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.06); }
+    100% { transform: scale(1); }
+}
+
+.spell-preview {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 3px;
+}
+
+.spell-preview svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.spell-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.spell-card-name {
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.spell-card-shape {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.45);
+    margin-top: 3px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 1020px) {
+    body { overflow-y: auto; }
+
+    #app {
+        flex-direction: column;
+        height: auto;
+        min-height: 100vh;
+        padding: 16px;
+    }
+
+    #camera-wrapper {
+        width: min(640px, calc(100vw - 32px));
+        height: auto;
+        aspect-ratio: 4 / 3;
+    }
+
+    #spellbook {
+        width: 100%;
+        max-width: 640px;
+        max-height: none;
+        flex: none;
+    }
+}
