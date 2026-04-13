@@ -232,6 +232,9 @@ class IRTracker {
             this._stillStartTime = null;
             this._lostFrames     = 0;
             if (this.drawing) this.drawing = false;
+            // Clear the path so an abandoned stroke doesn't linger on screen
+            // when signal is lost mid-draw without a complete spell gesture.
+            this.currentPath = [];
         }
         this.onUpdate(this.smoothedPoint, this.currentPath, this.drawing, null);
     }
@@ -241,6 +244,10 @@ class IRTracker {
     _findBestBlob(binary, W, H) {
         const last    = this.smoothedPoint;
         const maxJmp2 = IR_MAX_JUMP * IR_MAX_JUMP;   // squared — avoids sqrt per pixel
+        // smoothedPoint.x is in mirrored display space (W - camera_x); convert back
+        // to camera space so the proximity gate operates in the same coordinate system
+        // as the raw pixel loop (x = 0..W-1 in camera space).
+        const lastCamX = last ? (W - last.x) : null;
         let sumX = 0, sumY = 0, count = 0;
 
         for (let y = 0; y < H; y++) {
@@ -248,7 +255,7 @@ class IRTracker {
             for (let x = 0; x < W; x++) {
                 if (!binary[rowOff + x]) continue;
                 if (last) {
-                    const dx = x - last.x, dy = y - last.y;
+                    const dx = x - lastCamX, dy = y - last.y;
                     if (dx * dx + dy * dy > maxJmp2) continue;
                 }
                 sumX += x;

@@ -27,6 +27,10 @@
             <select id="ir-camera-select" class="hidden" title="Select IR camera device">
                 <option value="">Select camera…</option>
             </select>
+            <!-- Training mode toggle — pushed to the right via margin-left:auto in CSS -->
+            <button id="btn-train" class="mode-btn train-btn" title="Toggle Training Mode to label spell examples">
+                🎓 Train
+            </button>
         </div>
 
         <div id="camera-wrapper">
@@ -70,10 +74,12 @@
 <!--
     Load order:
       1. MediaPipe CDN (Hands + Camera utilities)
-      2. Our maths  (frechet.js — euclideanDist is needed by handtracking.js)
-      3. Spell defs (spells.js — needs curveSimilarity from frechet.js)
-      4. Tracker    (handtracking.js — needs euclideanDist)
-      5. App        (app.js — orchestrates everything)
+      2. Our maths   (frechet.js — euclideanDist needed by handtracking.js)
+      3. Spell defs  (spells.js  — needs curveSimilarity from frechet.js)
+      4. ML engine   (spell-ml.js — needs resampleCurve + curveSimilarity)
+      5. Trackers    (handtracking.js, irtracker.js)
+      6. Training UI (training-ui.js — needs spellML + SPELLS)
+      7. App         (app.js — orchestrates everything + creates TrainingUI)
 -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"
         crossorigin="anonymous"></script>
@@ -82,8 +88,10 @@
 
 <script src="js/frechet.js"></script>
 <script src="js/spells.js"></script>
+<script src="js/spell-ml.js"></script>
 <script src="js/handtracking.js"></script>
 <script src="js/irtracker.js"></script>
+<script src="js/training-ui.js"></script>
 <script src="js/app.js"></script>
 
 </body>

@@ -76,6 +76,7 @@ class SpellApp {
 
         this._buildSpellBook();
         this._setupModeUI();
+        this.trainingUI = new TrainingUI(this);   // must come after DOM is ready
         this._startTracker('hand');
         this._loop();
     }
@@ -238,8 +239,10 @@ class SpellApp {
             }
         }
 
-        // Drawing just ended — evaluate the spell
-        if (this._wasDrawing && !drawing && path.length > 15) {
+        // Drawing just ended — evaluate or label the spell
+        // In Training Mode accept shorter paths (min 5 pts) so partial shapes can be saved
+        const minPathLen = this.trainingUI?.trainingMode ? 5 : 15;
+        if (this._wasDrawing && !drawing && path.length > minPathLen) {
             this._castSpell([...path]);
         }
     }
@@ -247,9 +250,44 @@ class SpellApp {
     // ── Spell evaluation ──────────────────────────────────────────────────────
 
     _castSpell(path) {
-        const match = matchSpell(path);
-        this.tracker.pauseTracking();
+        // ── Training Mode: intercept for labelling, not casting ──────────────
+        if (this.trainingUI?.trainingMode) {
+            this.tracker.pauseTracking();
+            this.trainingUI.offerLabel(path);
+            return;
+        }
 
+        // ── Recognizer selection ─────────────────────────────────────────────
+        let match = null;
+
+        if (this.trainingUI?.recognizer === 'ml' && spellML.hasEnoughData()) {
+            // ML kNN path
+            const result = spellML.classify(path);
+            if (result) {
+                const spell = SPELLS.find(s => s.name === result.spellName);
+                if (spell) {
+                    // Known spell — use its full metadata for animations
+                    match = { ...spell, score: result.confidence };
+                } else {
+                    // Custom / user-defined spell — minimal display
+                    match = {
+                        name:        result.spellName,
+                        emoji:       '✨',
+                        color:       '#cc88ff',
+                        description: `Confidence: ${Math.round(result.confidence * 100)}%`,
+                        shape:       'custom',
+                        effect:      'constellation',
+                        score:       result.confidence,
+                    };
+                }
+            }
+        } else {
+            // Rule-based path (default)
+            match = matchSpell(path);
+        }
+
+        // ── Animate result ───────────────────────────────────────────────────
+        this.tracker.pauseTracking();
         if (match) {
             this.spellTimer = 120;
             this._highlightCard(match.name);
