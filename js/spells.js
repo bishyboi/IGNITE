@@ -60,24 +60,29 @@ function extractPathFeatures(path) {
     }
   }
 
-  // Find apex (highest point = lowest Y coordinate)
+  // Find apex (highest point = lowest Y in canvas coords)
   var apexIdx = 0;
   for (var m = 1; m < n; m++) {
     if (path[m].y < path[apexIdx].y) apexIdx = m;
   }
-  var hasTopApex = apexIdx > n * 0.2 && apexIdx < n * 0.8;
+  var apexRelPos   = apexIdx / (n - 1);
+  var hasTopApex   = apexRelPos > 0.15 && apexRelPos < 0.85;
 
-  // Find valley (lowest point = highest Y coordinate)
+  // Find valley (lowest point = highest Y in canvas coords)
   var valleyIdx = 0;
   for (var v = 1; v < n; v++) {
     if (path[v].y > path[valleyIdx].y) valleyIdx = v;
   }
-  var hasBottomValley = valleyIdx > n * 0.2 && valleyIdx < n * 0.8;
+  var valleyRelPos    = valleyIdx / (n - 1);
+  var hasBottomValley = valleyRelPos > 0.15 && valleyRelPos < 0.85;
 
-  // Y direction in first vs second half (normalized to height)
-  var mid = Math.floor(n / 2);
-  var firstHalfDY  = (path[mid].y - path[0].y) / height;
-  var secondHalfDY = (path[n-1].y - path[mid].y) / height;
+  // Direction measured from start → apex and apex → end.
+  // Using the actual apex/valley index is far more robust than a temporal
+  // midpoint split: it is unaffected by uneven drawing speed.
+  var startToApexDY   = (path[apexIdx].y   - path[0].y)       / height;  // <0 for ^
+  var apexToEndDY     = (path[n-1].y        - path[apexIdx].y) / height;  // >0 for ^
+  var startToValleyDY = (path[valleyIdx].y  - path[0].y)       / height;  // >0 for v
+  var valleyToEndDY   = (path[n-1].y        - path[valleyIdx].y) / height; // <0 for v
 
   // R-shape detection features
   var leftPts = path.filter(function(pt) { return pt.x < minX + width * 0.45; });
@@ -98,8 +103,10 @@ function extractPathFeatures(path) {
     yReversals: yReversals,
     hasTopApex: hasTopApex,
     hasBottomValley: hasBottomValley,
-    firstHalfDY: firstHalfDY,
-    secondHalfDY: secondHalfDY,
+    startToApexDY: startToApexDY,
+    apexToEndDY: apexToEndDY,
+    startToValleyDY: startToValleyDY,
+    valleyToEndDY: valleyToEndDY,
     hasVerticalStem: hasVerticalStem,
     hasUpperBulge: hasUpperBulge,
     hasDiagonalLeg: hasDiagonalLeg,
@@ -112,33 +119,38 @@ function classifySpell(f) {
   if (!f) return null;
   var hits = [];
 
-  // Lumos: clear ^ shape with apex in middle
-  if (!f.isClosed &&
-      f.hasTopApex &&
-      f.firstHalfDY < -0.20 &&     // going up (normalized)
-      f.secondHalfDY > 0.20 &&     // going down (normalized)
-      f.yReversals === 1 &&        // exactly one reversal
-      f.cornerCount >= 1 && f.cornerCount <= 4 &&
-      f.aspectRatio > 0.3 && f.aspectRatio < 3.0) {
+  // Lumos: ^ shape — stroke goes up to apex then back down.
+  // Direction is measured start→apex and apex→end (not a temporal midpoint
+  // split) so drawing speed variation cannot fool it.
+  // yReversals allows 1–3 to tolerate normal hand tremor.
+  if (f.hasTopApex &&
+      f.startToApexDY  < -0.25 &&   // stroke rises to apex
+      f.apexToEndDY    >  0.25 &&   // stroke falls from apex
+      f.yReversals >= 1 && f.yReversals <= 3 &&
+      f.cornerCount >= 1 && f.cornerCount <= 5 &&
+      f.aspectRatio > 0.25 && f.aspectRatio < 4.0) {
     hits.push({ name: 'Lumos', confidence: 0.85 });
   }
 
-  // Nox: clear v shape with valley in middle
+  // Nox: v shape — stroke goes down to valley then back up.
   if (f.hasBottomValley &&
-      f.firstHalfDY > 0.20 &&      // going down (normalized)
-      f.secondHalfDY < -0.20 &&    // going up (normalized)
-      f.yReversals === 1 &&        // exactly one reversal
-      f.cornerCount >= 1 && f.cornerCount <= 4 &&
-      f.aspectRatio > 0.3 && f.aspectRatio < 3.0) {
+      f.startToValleyDY >  0.25 &&  // stroke descends to valley
+      f.valleyToEndDY   < -0.25 &&  // stroke rises from valley
+      f.yReversals >= 1 && f.yReversals <= 3 &&
+      f.cornerCount >= 1 && f.cornerCount <= 5 &&
+      f.aspectRatio > 0.25 && f.aspectRatio < 4.0) {
     hits.push({ name: 'Nox', confidence: 0.85 });
   }
 
-  // Revelio: R shape (vertical stem + upper bulge + diagonal leg)
+  // Revelio: R shape — vertical stem + upper loop + diagonal kick.
+  // Requires cornerCount >= 3 (the loop adds extra corners vs the 1 of ^ or v)
+  // and yReversals >= 2 to distinguish the looping body from a simple arc.
   if (f.hasVerticalStem &&
       f.hasUpperBulge &&
       f.hasDiagonalLeg &&
-      f.cornerCount >= 2 &&
-      f.aspectRatio < 1.3) {
+      f.cornerCount >= 3 &&
+      f.yReversals   >= 2 &&
+      f.aspectRatio  <  1.3) {
     hits.push({ name: 'Revelio', confidence: 0.75 });
   }
 

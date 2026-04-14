@@ -373,54 +373,34 @@ class SpellCNN {
 
     /**
      * Expand the training set ML_AUG× per original example using:
-     *   • Gaussian coordinate noise  (σ = 0.04)
-     *   • Random scale jitter        (±20 %)
-     *   • Random translation jitter  (±15 %)
+     *   • Independent per-point coordinate noise  (σ ≈ 0.03)
+     *   • Random scale jitter  (±15 %)  — applied uniformly so shape is preserved
+     *   • 50 % chance of time-reversal  — teaches the model that drawing a spell
+     *     in either direction (left→right or right→left) is the same gesture
      *
-     * DTW is used to verify that each augmented path remains closer to its
-     * own class centroid than to any other class, discarding outliers that
-     * augmentation has pushed into an ambiguous region.
+     * NOTE: Translation jitter and the DTW centroid guard have been intentionally
+     * removed.  All stored paths are already centroid-normalised to (0,0) by
+     * normalizeCurve(), so the per-class "centroids" all collapse to near-zero
+     * degenerate lines — causing the guard to discard almost every Lumos and Nox
+     * augmented sample (their up-then-down y values cancel), while keeping most
+     * Revelio samples.  The resulting imbalance caused the CNN to always predict
+     * Revelio.  Simple noise + scale + reversal achieves the same diversity goal
+     * without the bias.
      */
     _augment(examples) {
         const result = [...examples];
 
-        // Build per-class centroid paths using DTW barycenter approximation
-        // (simple mean of normalised paths — good enough for small N)
-        const classCentroids = {};
-        const byClass = {};
-        for (const ex of examples) {
-            (byClass[ex.spellName] ??= []).push(ex.path);
-        }
-        for (const [name, paths] of Object.entries(byClass)) {
-            const n = paths[0].length;
-            classCentroids[name] = Array.from({ length: n }, (_, i) => ({
-                x: paths.reduce((s, p) => s + p[i].x, 0) / paths.length,
-                y: paths.reduce((s, p) => s + p[i].y, 0) / paths.length,
-            }));
-        }
-        const centroidEntries = Object.entries(classCentroids);
-
         for (const ex of examples) {
             for (let k = 0; k < ML_AUG; k++) {
-                const scale = 0.80 + Math.random() * 0.40;   // 0.80 – 1.20
-                const tx    = (Math.random() - 0.5) * 0.30;
-                const ty    = (Math.random() - 0.5) * 0.30;
+                const scale   = 0.85 + Math.random() * 0.30;   // 0.85 – 1.15
+                const reverse = Math.random() < 0.5;
 
-                const path = ex.path.map(p => ({
-                    x: p.x * scale + tx + (Math.random() - 0.5) * 0.08,
-                    y: p.y * scale + ty + (Math.random() - 0.5) * 0.08,
+                let path = ex.path.map(p => ({
+                    x: p.x * scale + (Math.random() - 0.5) * 0.06,
+                    y: p.y * scale + (Math.random() - 0.5) * 0.06,
                 }));
 
-                // DTW guard: discard if closer to a different class centroid
-                if (centroidEntries.length > 1) {
-                    const ownDist  = dtwDistance(path, classCentroids[ex.spellName]);
-                    const minOther = Math.min(
-                        ...centroidEntries
-                            .filter(([n]) => n !== ex.spellName)
-                            .map(([, c]) => dtwDistance(path, c))
-                    );
-                    if (ownDist >= minOther) continue;  // ambiguous — skip
-                }
+                if (reverse) path = path.slice().reverse();
 
                 result.push({ ...ex, id: this._uid(), path });
             }
