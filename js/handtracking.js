@@ -22,7 +22,7 @@
 const SMOOTHING_ALPHA    = 0.35;   // EMA blend — lower → smoother
 const SMOOTHING_DEADZONE = 4;      // px — suppress sub-pixel jitter
 const PINCH_THRESHOLD    = 0.20;   // 20 % of hand length → pinch fires
-const PINCH_RELEASE      = 0.50;   // 50 % of hand length → re-arm
+const PINCH_RELEASE      = 0.40;   // 50 % of hand length → re-arm
 
 // ── HandTracker ───────────────────────────────────────────────────────────────
 
