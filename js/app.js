@@ -260,7 +260,7 @@ class SpellApp {
         // ── Recognizer selection ─────────────────────────────────────────────
         let match = null;
 
-        if (this.trainingUI?.recognizer === 'ml' && spellML.hasEnoughData()) {
+        if (this.trainingUI?.recognizer === 'cnn' && spellML.isReady) {
             // ML kNN path
             const result = spellML.classify(path);
             if (result) {
@@ -289,12 +289,12 @@ class SpellApp {
         // ── Animate result ───────────────────────────────────────────────────
         this.tracker.pauseTracking();
         if (match) {
-            this.spellTimer = 120;
+            this.spellTimer = 60;
             this._highlightCard(match.name);
             this._emitParticles(match);
             this._showToast(match);
         } else {
-            this.spellTimer = 60;
+            this.spellTimer = 30;
             this._showFailToast();
         }
     }
